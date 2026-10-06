@@ -1,0 +1,150 @@
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: #1c1917;
+  color: #f5f5f4;
+}
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+h1 {
+  color: #fbbf24;
+  margin: 0 0 0.25rem;
+}
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+.sub {
+  color: #a8a29e;
+  margin-bottom: 1.25rem;
+}
+section {
+  background: #292524;
+  border: 1px solid #44403c;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+}
+label {
+  display: block;
+  font-size: 0.85rem;
+  color: #d6d3d1;
+  margin-bottom: 0.25rem;
+}
+input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #57534e;
+  background: #0c0a09;
+  color: #fafaf9;
+  margin-bottom: 0.75rem;
+}
+button {
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: #d97706;
+  color: #fff;
+  font-weight: 600;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+button.secondary {
+  background: #57534e;
+}
+.err {
+  color: #fb7185;
+}
+.muted {
+  color: #a8a29e;
+  font-size: 0.85rem;
+}
+a {
+  color: #fbbf24;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+th,
+td {
+  text-align: left;
+  padding: 0.45rem;
+  border-bottom: 1px solid #44403c;
+}
+/* 状态/结论颜色 token：总表、详情、琥珀专页样例色共用这一套。 */
+.tag {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.tag small {
+  margin-left: 0.25rem;
+  opacity: 0.75;
+}
+.tag.ok {
+  background: #14532d;
+  color: #86efac;
+}
+.tag.bad {
+  background: #7f1d1d;
+  color: #fca5a5;
+}
+.tag.pending {
+  background: #713f12;
+  color: #fde68a;
+}
+/* 近阈：琥珀橙，与"待处理"的明黄拉开色相差距。 */
+.tag.near {
+  background: #7c2d12;
+  color: #fdba74;
+}
+.swatch {
+  display: inline-block;
+  padding: 0.35rem 0.7rem;
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+nav a {
+  margin-right: 1rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+nav a.active {
+  text-decoration: underline;
+}
+.footnote {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #d97706;
+  background: #1c1917;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  color: #d6d3d1;
+}
+dl.info {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  row-gap: 0.4rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+dl.info dt {
+  color: #a8a29e;
+}
+dl.info dd {
+  margin: 0;
+}

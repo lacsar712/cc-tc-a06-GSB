@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timezone
 
 from models import ConvergenceLog, SessionLocal
-from rules import judge
+from rules import DEFAULT_INNER_MM, DEFAULT_OUTER_MM, judge
 
 _stop = threading.Event()
 
@@ -22,7 +22,10 @@ def claim_once() -> bool:
         if row is None:
             db.commit()
             return False
-        verdict, reason = judge(float(row.delta_mm))
+        # 只按本单提交时快照的界判定，不读实时配置；历史空快照回退默认界。
+        inner = row.band_inner_mm if row.band_inner_mm is not None else DEFAULT_INNER_MM
+        outer = row.band_outer_mm if row.band_outer_mm is not None else DEFAULT_OUTER_MM
+        verdict, reason = judge(float(row.delta_mm), inner, outer)
         row.status = "done"
         row.verdict = verdict
         row.reason = reason
