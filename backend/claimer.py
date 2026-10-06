@@ -1,12 +1,19 @@
-"""进程内认领：同一 Flask 进程后台线程抢 pending，不另起容器。"""
+"""进程内认领：同一 Flask 进程后台线程抢 pending，不另起容器。领走时快照当前琥珀界。"""
 import threading
 import time
 from datetime import datetime, timezone
 
-from models import ConvergenceLog, SessionLocal
-from rules import judge
+from models import BandConfig, ConvergenceLog, SessionLocal
+from rules import DEFAULT_INNER_MM, DEFAULT_OUTER_MM, judge
 
 _stop = threading.Event()
+
+
+def current_band(db) -> tuple[float, float]:
+    band = db.query(BandConfig).order_by(BandConfig.id.desc()).first()
+    if band is None:
+        return DEFAULT_INNER_MM, DEFAULT_OUTER_MM
+    return band.inner_mm, band.outer_mm
 
 
 def claim_once() -> bool:
@@ -22,10 +29,13 @@ def claim_once() -> bool:
         if row is None:
             db.commit()
             return False
-        verdict, reason = judge(float(row.delta_mm))
+        inner_mm, outer_mm = current_band(db)
+        verdict, reason = judge(float(row.delta_mm), inner_mm, outer_mm)
         row.status = "done"
         row.verdict = verdict
         row.reason = reason
+        row.band_inner_mm = inner_mm
+        row.band_outer_mm = outer_mm
         row.processed_at = datetime.now(timezone.utc)
         db.commit()
         return True

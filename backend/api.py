@@ -7,7 +7,16 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from claimer import start as start_claimer
-from models import Base, ConvergenceLog, SessionLocal, engine, row_dict
+from models import (
+    Base,
+    BandConfig,
+    ConvergenceLog,
+    SessionLocal,
+    band_dict,
+    engine,
+    row_dict,
+)
+from rules import DEFAULT_INNER_MM, DEFAULT_OUTER_MM, judge
 
 SECRET = os.environ.get("JWT_SECRET", "tunnelconv-dev-secret")
 pwd = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -19,18 +28,44 @@ USERS = {
 app = Flask(__name__)
 
 
-def seed():
+def migrate():
     Base.metadata.create_all(engine)
+    # 老库补快照列；新库列已随 create_all 建好（SQLite 不支持 IF NOT EXISTS，忽略报错）
+    with engine.begin() as conn:
+        for col in ("band_inner_mm", "band_outer_mm"):
+            try:
+                conn.exec_driver_sql(
+                    f"ALTER TABLE convergence_logs ADD COLUMN IF NOT EXISTS {col} DOUBLE PRECISION"
+                )
+            except Exception:
+                pass
+
+
+def seed():
     db = SessionLocal()
     try:
+        band = db.query(BandConfig).order_by(BandConfig.id.desc()).first()
+        if band is None:
+            band = BandConfig(
+                inner_mm=DEFAULT_INNER_MM,
+                outer_mm=DEFAULT_OUTER_MM,
+                changed_by="system",
+                changed_at=datetime.now(timezone.utc),
+                note=f"初始带：合格 ±{DEFAULT_INNER_MM} mm，琥珀近阈 {DEFAULT_INNER_MM}~{DEFAULT_OUTER_MM} mm",
+            )
+            db.add(band)
+            db.commit()
+            db.refresh(band)
         if db.query(ConvergenceLog).count() > 0:
             return
         now = datetime.now(timezone.utc)
+        is_default_band = (
+            band.inner_mm == DEFAULT_INNER_MM and band.outer_mm == DEFAULT_OUTER_MM
+        )
         for chainage, delta, expect in (("K12+180", 1.2, "合格"), ("K18+040", 5.6, "超限")):
-            from rules import judge
-
-            verdict, reason = judge(delta)
-            assert verdict == expect
+            verdict, reason = judge(delta, band.inner_mm, band.outer_mm)
+            if is_default_band:
+                assert verdict == expect
             db.add(
                 ConvergenceLog(
                     chainage=chainage,
@@ -38,6 +73,8 @@ def seed():
                     status="done",
                     verdict=verdict,
                     reason=reason,
+                    band_inner_mm=band.inner_mm,
+                    band_outer_mm=band.outer_mm,
                     created_by="surveyor",
                     created_at=now,
                     processed_at=now,
@@ -48,6 +85,7 @@ def seed():
         db.close()
 
 
+migrate()
 seed()
 start_claimer()
 
@@ -123,6 +161,19 @@ def list_logs():
         db.close()
 
 
+@app.get("/api/logs/<int:log_id>")
+@require_login
+def get_log(log_id):
+    db = SessionLocal()
+    try:
+        row = db.get(ConvergenceLog, log_id)
+        if row is None:
+            return jsonify({"detail": "单据不存在"}), 404
+        return jsonify(row_dict(row))
+    finally:
+        db.close()
+
+
 @app.post("/api/logs")
 @require_writer
 def create_log():
@@ -147,5 +198,62 @@ def create_log():
         db.commit()
         db.refresh(row)
         return jsonify(row_dict(row)), 201
+    finally:
+        db.close()
+
+
+@app.get("/api/band")
+@require_login
+def get_band():
+    db = SessionLocal()
+    try:
+        band = db.query(BandConfig).order_by(BandConfig.id.desc()).first()
+        if band is None:
+            return jsonify({"detail": "尚未设置琥珀带"}), 404
+        return jsonify(band_dict(band))
+    finally:
+        db.close()
+
+
+@app.get("/api/band/history")
+@require_login
+def band_history():
+    db = SessionLocal()
+    try:
+        rows = db.query(BandConfig).order_by(BandConfig.id.desc()).all()
+        return jsonify([band_dict(b) for b in rows])
+    finally:
+        db.close()
+
+
+@app.post("/api/band")
+@require_login
+def change_band():
+    if g.user["role"] != "writer":
+        return jsonify({"detail": "巡检员只读，不能改带"}), 403
+    body = request.get_json(silent=True) or {}
+    try:
+        inner_mm = float(body.get("inner_mm"))
+        outer_mm = float(body.get("outer_mm"))
+    except (TypeError, ValueError):
+        return jsonify({"detail": "内缘、外缘必须是数字"}), 400
+    if inner_mm <= 0:
+        return jsonify({"detail": "内缘必须大于 0"}), 400
+    if outer_mm <= inner_mm:
+        return jsonify({"detail": "外缘必须大于内缘"}), 400
+    note = (body.get("note") or "").strip() or None
+    db = SessionLocal()
+    try:
+        band = BandConfig(
+            inner_mm=inner_mm,
+            outer_mm=outer_mm,
+            changed_by=g.user["username"],
+            changed_at=datetime.now(timezone.utc),
+            note=note,
+        )
+        db.add(band)
+        db.commit()
+        db.refresh(band)
+        return jsonify(band_dict(band)), 201
     finally:
         db.close()
